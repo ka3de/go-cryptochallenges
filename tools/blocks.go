@@ -6,7 +6,7 @@ func SplitCiphertextInBlocks(ciphertext []byte, blockSize int) [][]byte {
 
 	for iBlock := 0; iBlock < blockListSize; iBlock++ {
 		blockStart := iBlock * blockSize
-		blockEnd := (iBlock + 1) * blockSize
+		blockEnd := blockStart + blockSize
 
 		block := make([]byte, blockSize)
 		copy(block, ciphertext[blockStart:blockEnd])
