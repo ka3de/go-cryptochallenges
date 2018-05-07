@@ -125,3 +125,30 @@ func TestBreakRepeatingKeyXor(t *testing.T) {
 			string(plaintext), challenge6ExpectedPlaintext)
 	}
 }
+
+func TestDecryptAESinECB(t *testing.T) {
+	// given
+	key := []byte("YELLOW SUBMARINE")
+	b64Ciphertext, err := tools.ReadFileContent("./7.txt")
+	if err != nil {
+		t.Errorf("Error reading ciphertext file: %s", err.Error())
+	}
+
+	ciphertext, err := base64.StdEncoding.DecodeString(b64Ciphertext)
+	if err != nil {
+		t.Errorf("Error decoding b64 ciphertext: %s", err.Error())
+	}
+
+	// when
+	paddedPlaintext, err := DecryptAESinECB(ciphertext, key)
+	if err != nil {
+		t.Errorf("Error decrypting ciphertext: %s", err.Error())
+	}
+	plaintext := tools.RemovePkcs7Padding(paddedPlaintext)
+
+	// then
+	if string(plaintext) != challenge7ExpectedPlaintext {
+		t.Errorf("DecryptAESinECB(...) = %s\n, expected\n%s",
+			string(plaintext), challenge7ExpectedPlaintext)
+	}
+}

@@ -80,3 +80,5 @@ Play that funky music A little louder now
 Play that funky music, white boy Come on, Come on, Come on 
 Play that funky music 
 `
+
+const challenge7ExpectedPlaintext = challenge6ExpectedPlaintext

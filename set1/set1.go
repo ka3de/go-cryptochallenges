@@ -1,12 +1,15 @@
 package cryptochallenges
 
 import (
+	"crypto/aes"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
 
 	"github.com/ka3de/go-cryptochallenges/tools"
 )
+
+const aesBlockSize = 16
 
 func HexToB64(hexData string) (string, error) {
 	data, err := hex.DecodeString(hexData)
@@ -145,10 +148,10 @@ func guessRepeatingKeyXorSize(ciphertext []byte, minKeySize, maxKeySize int) (in
 
 		for iBlock := 0; iBlock < ciphertextBlocksSize-1; iBlock++ {
 			firstBlockStart := iBlock * keySize
-			firstBlockEnd := (iBlock + 1) * keySize
+			firstBlockEnd := firstBlockStart + keySize
 
 			secondBlockStart := firstBlockEnd
-			secondBlockEnd := (iBlock + 2) * keySize
+			secondBlockEnd := secondBlockStart + keySize
 
 			blocksDistance, err := tools.HammingDistance(ciphertext[firstBlockStart:firstBlockEnd],
 				ciphertext[secondBlockStart:secondBlockEnd])
@@ -167,4 +170,25 @@ func guessRepeatingKeyXorSize(ciphertext []byte, minKeySize, maxKeySize int) (in
 	}
 
 	return guessedKeySize, nil
+}
+
+func DecryptAESinECB(ciphertext, key []byte) ([]byte, error) {
+	if len(ciphertext)%aesBlockSize != 0 {
+		return nil, errors.New("Invalid ciphertext length")
+	}
+
+	plaintext := make([]byte, len(ciphertext))
+	aesCipher, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	for iBlock := 0; iBlock < len(ciphertext)/aesBlockSize; iBlock++ {
+		blockStart := iBlock * aesBlockSize
+		blockEnd := blockStart + aesBlockSize
+
+		aesCipher.Decrypt(plaintext[blockStart:blockEnd], ciphertext[blockStart:blockEnd])
+	}
+
+	return plaintext, nil
 }
