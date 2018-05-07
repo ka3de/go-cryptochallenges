@@ -49,14 +49,15 @@ func TestBreakSingleByteXor(t *testing.T) {
 	expectedPlaintext := "Cooking MC's like a pound of bacon"
 
 	// when
-	plaintext, _, _, err := BreakSingleByteXor(ciphertext)
+	singleByteXorResult, err := BreakSingleByteXor(ciphertext)
 	if err != nil {
 		t.Errorf("Error: %s", err.Error())
 	}
 
 	// then
-	if plaintext != expectedPlaintext {
-		t.Errorf("BreakSingleByteXor(%x) = %s, expected %s", ciphertext, plaintext, expectedPlaintext)
+	if singleByteXorResult.plaintext != expectedPlaintext {
+		t.Errorf("BreakSingleByteXor(%x) = %s, expected %s",
+			ciphertext, singleByteXorResult.plaintext, expectedPlaintext)
 	}
 }
 

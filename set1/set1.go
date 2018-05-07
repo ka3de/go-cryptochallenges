@@ -53,10 +53,16 @@ func Xor(data1, data2 []byte) ([]byte, error) {
 	return ciphertext, nil
 }
 
+type SingleByteXorResult struct {
+	score     int
+	key       rune
+	plaintext string
+}
+
 // BreakSingleByteXor tries to decrypt by brute force a ciphertext
 // that's supposed to have  been encrypted by a one byte key
-// returns the most probable plaintext and its score assuming it's an english text
-func BreakSingleByteXor(ciphertext []byte) (string, rune, int, error) {
+// returns the most probable plaintext, the key and its score assuming it's an english text
+func BreakSingleByteXor(ciphertext []byte) (SingleByteXorResult, error) {
 	bestScore := 0
 	bestPlaintext := ""
 	bestKey := rune(0)
@@ -64,7 +70,7 @@ func BreakSingleByteXor(ciphertext []byte) (string, rune, int, error) {
 	for char := rune(0); char <= 255; char++ {
 		plaintext, err := Xor(ciphertext, []byte(string(char)))
 		if err != nil {
-			return "", rune(0), 0, nil
+			return SingleByteXorResult{}, err
 		}
 
 		score := tools.GetLangScoring(string(plaintext))
@@ -75,7 +81,7 @@ func BreakSingleByteXor(ciphertext []byte) (string, rune, int, error) {
 		}
 	}
 
-	return bestPlaintext, bestKey, bestScore, nil
+	return SingleByteXorResult{bestScore, bestKey, bestPlaintext}, nil
 }
 
 // DetectSingleByteXor detects which of the ciphertexts from the
@@ -93,14 +99,14 @@ func DetectSingleByteXor(ciphertextList []string) (string, error) {
 			return "", err
 		}
 
-		plaintext, _, score, err := BreakSingleByteXor(ciphertext)
+		singleByteXorResult, err := BreakSingleByteXor(ciphertext)
 		if err != nil {
 			return "", err
 		}
 
-		if score > bestScore {
-			bestScore = score
-			bestPlaintext = plaintext
+		if singleByteXorResult.score > bestScore {
+			bestScore = singleByteXorResult.score
+			bestPlaintext = singleByteXorResult.plaintext
 		}
 	}
 
@@ -118,11 +124,11 @@ func BreakRepeatingKeyXor(ciphertext []byte) ([]byte, error) {
 
 	key := make([]byte, len(transposedCiphertextBlocks))
 	for iBlock := 0; iBlock < len(transposedCiphertextBlocks); iBlock++ {
-		_, keyByte, _, err := BreakSingleByteXor(transposedCiphertextBlocks[iBlock])
+		singleByteXorResult, err := BreakSingleByteXor(transposedCiphertextBlocks[iBlock])
 		if err != nil {
 			return nil, err
 		}
-		key[iBlock] = byte(keyByte)
+		key[iBlock] = byte(singleByteXorResult.key)
 	}
 
 	return Xor(ciphertext, key)
