@@ -35,3 +35,29 @@ func TransposeBlocks(blockList [][]byte) [][]byte {
 
 	return transposedBlockList
 }
+
+// CountRepeatedBlocksHex counts the repeated blocks in an hex encoded ciphertext
+// blocksize is the block size in bytes
+func CountRepeatedBlocksHex(hexCiphertext string, blockSize int) int {
+	blockSizeHex := blockSize / 2
+
+	repeatedBlocks := 0
+
+	for len(hexCiphertext) > 0 {
+		block := hexCiphertext[:blockSizeHex]
+		hexCiphertext = hexCiphertext[blockSizeHex:]
+
+		for iBlock := 0; iBlock < len(hexCiphertext)/(blockSizeHex); iBlock++ {
+			blockStart := iBlock * blockSizeHex
+			blockEnd := blockStart + blockSizeHex
+
+			if block == hexCiphertext[blockStart:blockEnd] {
+				repeatedBlocks++
+				iBlock--
+				hexCiphertext = hexCiphertext[:blockStart] + hexCiphertext[blockEnd:]
+			}
+		}
+	}
+
+	return repeatedBlocks
+}
