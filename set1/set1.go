@@ -192,3 +192,45 @@ func DecryptAESinECB(ciphertext, key []byte) ([]byte, error) {
 
 	return plaintext, nil
 }
+
+// DetectAESinECB parses a list of hex encoded ciphertext
+// and returns the one that guesses has been encrypted using
+// AES block cipher in ECB mode
+func DetectAESinECB(hexCiphertextList []string) (string, error) {
+	aesBlockSizeHex := aesBlockSize / 2
+
+	maxRepeatedBlocks := 0
+	aesEcbCiphertext := ""
+
+	for _, hexCiphertext := range hexCiphertextList {
+		if len(hexCiphertext)%(aesBlockSizeHex) != 0 {
+			return "", errors.New("Invalid ciphertext length!")
+		}
+
+		repeatedBlocks := 0
+		hexCiphertextCopy := hexCiphertext
+
+		for len(hexCiphertextCopy) > 0 {
+			block := hexCiphertextCopy[:aesBlockSizeHex]
+			hexCiphertextCopy = hexCiphertextCopy[aesBlockSizeHex:]
+
+			for iBlock := 0; iBlock < len(hexCiphertextCopy)/(aesBlockSizeHex); iBlock++ {
+				blockStart := iBlock * aesBlockSizeHex
+				blockEnd := blockStart + aesBlockSizeHex
+
+				if block == hexCiphertextCopy[blockStart:blockEnd] {
+					repeatedBlocks++
+					iBlock--
+					hexCiphertextCopy = hexCiphertextCopy[:blockStart] + hexCiphertextCopy[blockEnd:]
+				}
+			}
+		}
+
+		if repeatedBlocks > maxRepeatedBlocks {
+			maxRepeatedBlocks = repeatedBlocks
+			aesEcbCiphertext = hexCiphertext
+		}
+	}
+
+	return aesEcbCiphertext, nil
+}

@@ -152,3 +152,23 @@ func TestDecryptAESinECB(t *testing.T) {
 			string(plaintext), challenge7ExpectedPlaintext)
 	}
 }
+
+func TestDetectAESinECB(t *testing.T) {
+	// given
+	hexCiphertextList, err := tools.ReadFileLines("./8.txt")
+	if err != nil {
+		t.Errorf("Error reading ciphertext list file: %s", err.Error())
+	}
+
+	// when
+	aesInEcbCiphertext, err := DetectAESinECB(hexCiphertextList)
+	if err != nil {
+		t.Errorf("Error detecting AES in ECB ciphertext: %s", err.Error())
+	}
+
+	// then
+	if aesInEcbCiphertext != challenge8ExpectedCiphertext {
+		t.Errorf("DetectAESinECB(...) = %s\n, expected\n%s",
+			aesInEcbCiphertext, challenge8ExpectedCiphertext)
+	}
+}
