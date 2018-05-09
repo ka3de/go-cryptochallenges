@@ -205,7 +205,11 @@ func DetectAESinECB(hexCiphertextList []string) (string, error) {
 			return "", errors.New("Invalid ciphertext length!")
 		}
 
-		repeatedBlocks := tools.CountRepeatedBlocksHex(hexCiphertext, aesBlockSize)
+		ciphertext, err := hex.DecodeString(hexCiphertext)
+		if err != nil {
+			return "", err
+		}
+		repeatedBlocks := tools.CountRepeatedBlocks(ciphertext, aesBlockSize)
 
 		if repeatedBlocks > maxRepeatedBlocks {
 			maxRepeatedBlocks = repeatedBlocks

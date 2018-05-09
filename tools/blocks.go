@@ -1,5 +1,9 @@
 package tools
 
+import (
+	"bytes"
+)
+
 func SplitCiphertextInBlocks(ciphertext []byte, blockSize int) [][]byte {
 	blockListSize := len(ciphertext) / blockSize
 	blockList := make([][]byte, blockListSize)
@@ -55,6 +59,26 @@ func CountRepeatedBlocksHex(hexCiphertext string, blockSize int) int {
 				repeatedBlocks++
 				iBlock--
 				hexCiphertext = hexCiphertext[:blockStart] + hexCiphertext[blockEnd:]
+			}
+		}
+	}
+
+	return repeatedBlocks
+}
+
+func CountRepeatedBlocks(ciphertext []byte, blockSize int) int {
+	ciphertextBlocks := len(ciphertext) / blockSize
+	repeatedBlocks := 0
+
+	for i := 0; i < ciphertextBlocks; i++ {
+		for j := 0; j < ciphertextBlocks; j++ {
+			if i != j {
+				iBlock := ciphertext[i*blockSize : (i+1)*blockSize]
+				jBlock := ciphertext[j*blockSize : (j+1)*blockSize]
+
+				if bytes.Equal(iBlock, jBlock) {
+					repeatedBlocks++
+				}
 			}
 		}
 	}
