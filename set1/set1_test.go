@@ -16,7 +16,7 @@ func TestHexToB64(t *testing.T) {
 	// when
 	b64Data, err := HexToB64(hexData)
 	if err != nil {
-		t.Errorf("Error: %s", err.Error())
+		t.Fatalf("Error: %s", err.Error())
 	}
 
 	// then
@@ -34,7 +34,7 @@ func TestXorHexData(t *testing.T) {
 	// when
 	xorHexData, err := XorHexData(hexData1, hexData2)
 	if err != nil {
-		t.Errorf("Error: %s", err.Error())
+		t.Fatalf("Error: %s", err.Error())
 	}
 
 	// then
@@ -51,7 +51,7 @@ func TestBreakSingleByteXor(t *testing.T) {
 	// when
 	singleByteXorResult, err := BreakSingleByteXor(ciphertext)
 	if err != nil {
-		t.Errorf("Error: %s", err.Error())
+		t.Fatalf("Error: %s", err.Error())
 	}
 
 	// then
@@ -66,13 +66,13 @@ func TestDetectSingleByteXor(t *testing.T) {
 	expectedPlaintext := "Now that the party is jumping\n"
 	ciphertextList, err := tools.ReadFileLines("./4.txt")
 	if err != nil {
-		t.Errorf("Error opening ciphertext list file: %s", err.Error())
+		t.Fatalf("Error opening ciphertext list file: %s", err.Error())
 	}
 
 	// when
 	plaintext, err := DetectSingleByteXor(ciphertextList)
 	if err != nil {
-		t.Errorf("Error: %s", err.Error())
+		t.Fatalf("Error: %s", err.Error())
 	}
 
 	// then
@@ -91,7 +91,7 @@ func TestRepeatingKeyXor(t *testing.T) {
 	// when
 	ciphertext, err := Xor(plaintext, key)
 	if err != nil {
-		t.Errorf("Error: %s", err.Error())
+		t.Fatalf("Error: %s", err.Error())
 	}
 
 	// then
@@ -105,18 +105,18 @@ func TestBreakRepeatingKeyXor(t *testing.T) {
 	// given
 	b64Ciphertext, err := tools.ReadFileContent("./6.txt")
 	if err != nil {
-		t.Errorf("Error reading ciphertext file: %s", err.Error())
+		t.Fatalf("Error reading ciphertext file: %s", err.Error())
 	}
 
 	ciphertext, err := base64.StdEncoding.DecodeString(b64Ciphertext)
 	if err != nil {
-		t.Errorf("Error decoding b64 ciphertext: %s", err.Error())
+		t.Fatalf("Error decoding b64 ciphertext: %s", err.Error())
 	}
 
 	// when
 	plaintext, err := BreakRepeatingKeyXor(ciphertext)
 	if err != nil {
-		t.Errorf("Error trying to decrypt ciphertext: %s", err.Error())
+		t.Fatalf("Error trying to decrypt ciphertext: %s", err.Error())
 	}
 
 	// then
@@ -131,18 +131,18 @@ func TestDecryptAESinECB(t *testing.T) {
 	key := []byte("YELLOW SUBMARINE")
 	b64Ciphertext, err := tools.ReadFileContent("./7.txt")
 	if err != nil {
-		t.Errorf("Error reading ciphertext file: %s", err.Error())
+		t.Fatalf("Error reading ciphertext file: %s", err.Error())
 	}
 
 	ciphertext, err := base64.StdEncoding.DecodeString(b64Ciphertext)
 	if err != nil {
-		t.Errorf("Error decoding b64 ciphertext: %s", err.Error())
+		t.Fatalf("Error decoding b64 ciphertext: %s", err.Error())
 	}
 
 	// when
 	paddedPlaintext, err := DecryptAESinECB(ciphertext, key)
 	if err != nil {
-		t.Errorf("Error decrypting ciphertext: %s", err.Error())
+		t.Fatalf("Error decrypting ciphertext: %s", err.Error())
 	}
 	plaintext := tools.RemovePkcs7Padding(paddedPlaintext)
 
@@ -157,13 +157,13 @@ func TestDetectAESinECB(t *testing.T) {
 	// given
 	hexCiphertextList, err := tools.ReadFileLines("./8.txt")
 	if err != nil {
-		t.Errorf("Error reading ciphertext list file: %s", err.Error())
+		t.Fatalf("Error reading ciphertext list file: %s", err.Error())
 	}
 
 	// when
 	aesInEcbCiphertext, err := DetectAESinECB(hexCiphertextList)
 	if err != nil {
-		t.Errorf("Error detecting AES in ECB ciphertext: %s", err.Error())
+		t.Fatalf("Error detecting AES in ECB ciphertext: %s", err.Error())
 	}
 
 	// then
