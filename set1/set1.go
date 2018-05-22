@@ -9,7 +9,7 @@ import (
 	"github.com/ka3de/go-cryptochallenges/tools"
 )
 
-const aesBlockSize = 16
+const AESBlockSize = 16
 
 func HexToB64(hexData string) (string, error) {
 	data, err := hex.DecodeString(hexData)
@@ -173,7 +173,7 @@ func guessRepeatingKeyXorSize(ciphertext []byte, minKeySize, maxKeySize int) (in
 }
 
 func DecryptAESinECB(ciphertext, key []byte) ([]byte, error) {
-	if len(ciphertext)%aesBlockSize != 0 {
+	if len(ciphertext)%AESBlockSize != 0 {
 		return nil, errors.New("Invalid ciphertext length")
 	}
 
@@ -183,14 +183,35 @@ func DecryptAESinECB(ciphertext, key []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	for iBlock := 0; iBlock < len(ciphertext)/aesBlockSize; iBlock++ {
-		blockStart := iBlock * aesBlockSize
-		blockEnd := blockStart + aesBlockSize
+	for iBlock := 0; iBlock < len(ciphertext)/AESBlockSize; iBlock++ {
+		blockStart := iBlock * AESBlockSize
+		blockEnd := blockStart + AESBlockSize
 
 		aesCipher.Decrypt(plaintext[blockStart:blockEnd], ciphertext[blockStart:blockEnd])
 	}
 
 	return plaintext, nil
+}
+
+func EncryptAESinECB(plaintext []byte, key []byte) ([]byte, error) {
+	paddedPlaintext := tools.ApplyPkcs7Padding(plaintext, AESBlockSize)
+
+	aesCipher, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	blocksNumber := len(paddedPlaintext) / AESBlockSize
+	ciphertext := make([]byte, blocksNumber)
+
+	for iBlock := 0; iBlock < blocksNumber; iBlock++ {
+		blockStart := iBlock * AESBlockSize
+		blokEnd := blockStart + AESBlockSize
+
+		aesCipher.Encrypt(ciphertext[blockStart:blokEnd], paddedPlaintext[blockStart:blokEnd])
+	}
+
+	return ciphertext, nil
 }
 
 // DetectAESinECB parses a list of hex encoded ciphertext
@@ -201,7 +222,7 @@ func DetectAESinECB(hexCiphertextList []string) (string, error) {
 	aesEcbCiphertext := ""
 
 	for _, hexCiphertext := range hexCiphertextList {
-		if len(hexCiphertext)%(aesBlockSize/2) != 0 {
+		if len(hexCiphertext)%(AESBlockSize/2) != 0 {
 			return "", errors.New("Invalid ciphertext length!")
 		}
 
@@ -209,7 +230,7 @@ func DetectAESinECB(hexCiphertextList []string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		repeatedBlocks := tools.CountRepeatedBlocks(ciphertext, aesBlockSize)
+		repeatedBlocks := tools.CountRepeatedBlocks(ciphertext, AESBlockSize)
 
 		if repeatedBlocks > maxRepeatedBlocks {
 			maxRepeatedBlocks = repeatedBlocks
