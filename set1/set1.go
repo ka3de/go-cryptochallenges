@@ -202,13 +202,13 @@ func EncryptAESinECB(plaintext []byte, key []byte) ([]byte, error) {
 	}
 
 	blocksNumber := len(paddedPlaintext) / AESBlockSize
-	ciphertext := make([]byte, blocksNumber)
+	ciphertext := make([]byte, blocksNumber*AESBlockSize)
 
 	for iBlock := 0; iBlock < blocksNumber; iBlock++ {
 		blockStart := iBlock * AESBlockSize
-		blokEnd := blockStart + AESBlockSize
+		blockEnd := blockStart + AESBlockSize
 
-		aesCipher.Encrypt(ciphertext[blockStart:blokEnd], paddedPlaintext[blockStart:blokEnd])
+		aesCipher.Encrypt(ciphertext[blockStart:blockEnd], paddedPlaintext[blockStart:blockEnd])
 	}
 
 	return ciphertext, nil

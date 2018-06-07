@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/aes"
 	"encoding/base64"
+	"math"
 	"testing"
 
 	cryptochallenges "github.com/ka3de/go-cryptochallenges/set1"
@@ -57,5 +58,62 @@ func TestDecryptCBC(t *testing.T) {
 	if string(plaintext) != challenge10ExpectedPlaintext {
 		t.Errorf("DecryptCBC(...) = %s\n, expected\n%s",
 			string(plaintext), challenge10ExpectedPlaintext)
+	}
+}
+
+func TestEncryptAndDecryptCBC(t *testing.T) {
+	// given
+	plaintext := []byte("plaintext")
+	key := []byte("YELLOW SUBMARINE")
+	aesCipher, err := aes.NewCipher(key)
+	if err != nil {
+		t.Fatalf("Error invalid key: %s", err.Error())
+	}
+
+	// when
+	iv, ciphertext, err := EncryptCBC(plaintext, aesCipher, cryptochallenges.AESBlockSize)
+	if err != nil {
+		t.Fatalf("Error encrypting plaintext: %s", err.Error())
+	}
+
+	decryptedCiphertext, err := DecryptCBC(ciphertext, iv, aesCipher, cryptochallenges.AESBlockSize)
+	if err != nil {
+		t.Fatalf("Error decrypting ciphertext: %s", err.Error())
+	}
+
+	// then
+	if string(plaintext) != string(decryptedCiphertext) {
+		t.Errorf("Error encrypting and decrypting in CBC mode:\nobtained -> %s\nexpected ->%s",
+			string(decryptedCiphertext), string(plaintext))
+	}
+}
+
+func TestEcbCbcDetectionOracle(t *testing.T) {
+	// given
+	totalEncryptions := 250
+	maxErrorMargin := 6.0
+
+	plaintext := bytes.Repeat([]byte("A"), 4*cryptochallenges.AESBlockSize)
+	ecbCounter, cbcCounter := 0.0, 0.0
+
+	// when
+	for i := 0; i < totalEncryptions; i++ {
+		ciphertext, err := EncryptionOracle(plaintext)
+		if err != nil {
+			t.Fatalf("Error encryption oracle: %s", err.Error())
+		}
+
+		if IsECBEncrypted(ciphertext) {
+			ecbCounter++
+		} else {
+			cbcCounter++
+		}
+	}
+
+	// then
+	diffPercentage := (math.Abs(ecbCounter-cbcCounter) * 100) / float64(totalEncryptions)
+	if diffPercentage > maxErrorMargin {
+		t.Errorf("Error detecting ECB encryption, max error margin overcome:\nmax: %f\nerr:%f",
+			maxErrorMargin, diffPercentage)
 	}
 }
