@@ -140,11 +140,10 @@ func TestDecryptAESinECB(t *testing.T) {
 	}
 
 	// when
-	paddedPlaintext, err := DecryptAESinECB(ciphertext, key)
+	plaintext, err := DecryptAESinECB(ciphertext, key)
 	if err != nil {
 		t.Fatalf("Error decrypting ciphertext: %s", err.Error())
 	}
-	plaintext := tools.RemovePkcs7Padding(paddedPlaintext)
 
 	// then
 	if string(plaintext) != challenge7ExpectedPlaintext {

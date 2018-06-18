@@ -190,7 +190,7 @@ func DecryptAESinECB(ciphertext, key []byte) ([]byte, error) {
 		aesCipher.Decrypt(plaintext[blockStart:blockEnd], ciphertext[blockStart:blockEnd])
 	}
 
-	return plaintext, nil
+	return tools.RemovePkcs7Padding(plaintext), nil
 }
 
 func EncryptAESinECB(plaintext []byte, key []byte) ([]byte, error) {
