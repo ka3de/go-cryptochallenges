@@ -5,7 +5,7 @@ func ApplyPkcs7Padding(plaintext []byte, blockSize int) []byte {
 	plaintextBlocksCount := len(plaintext) / blockSize
 
 	if plaintextBlocksCount > 0 {
-		lastBlock = plaintext[(plaintextBlocksCount-1)*blockSize:]
+		lastBlock = plaintext[(plaintextBlocksCount)*blockSize:]
 	} else {
 		lastBlock = plaintext
 	}
