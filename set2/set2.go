@@ -1,9 +1,11 @@
 package cryptochallenges
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	random "math/rand"
 
@@ -11,6 +13,17 @@ import (
 
 	cryptochallenges "github.com/ka3de/go-cryptochallenges/set1"
 )
+
+const (
+	ch12UnkownStringB64 = "Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkgaGFpciBjYW4g" +
+		"YmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBqdXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLC" +
+		"BJIGp1c3QgZHJvdmUgYnkK"
+)
+
+// global variable to use with ECB encryption oracle
+var oracleAESKey []byte
+
+type encryptionOracle func(plaintext []byte) ([]byte, error)
 
 // DecryptCBC decrypts a ciphertext previously encrypted in CBC mode using the
 // input block cipher
@@ -90,7 +103,7 @@ func generateKey(keySize int) ([]byte, error) {
 	return key, err
 }
 
-func EncryptionOracle(plaintext []byte) ([]byte, error) {
+func RandomEncryptionOracle(plaintext []byte) ([]byte, error) {
 	plaintext, err := randomizePlaintext(plaintext)
 	if err != nil {
 		return nil, err
@@ -135,8 +148,133 @@ func randomizePlaintext(plaintext []byte) ([]byte, error) {
 	return append(append(beforeData, plaintext...), afterData...), nil
 }
 
-// IsECBEncrypted counts the number of repeated ciphertext blocks
-// if one or more blocks are repeated the ciphertext is assumed to be encrypted in ECB mode
-func IsECBEncrypted(ciphertext []byte) bool {
-	return tools.CountRepeatedBlocks(ciphertext, cryptochallenges.AESBlockSize) > 0
+// IsECBEncrypted - guesses if the ciphertext has been encrypted using ECB mode
+func IsECBEncrypted(ciphertext []byte, blockSize int) bool {
+	return tools.CountRepeatedBlocks(ciphertext, blockSize) > 0
+}
+
+// IsECBEncryption - guesses if the input oracle encrypts data using ECB mode
+func IsECBEncryption(oracle encryptionOracle, blockSize int) (bool, error) {
+	plaintext := bytes.Repeat([]byte("A"), 4*blockSize)
+	ciphertext, err := oracle(plaintext)
+	if err != nil {
+		return false, err
+	}
+
+	return tools.CountRepeatedBlocks(ciphertext, blockSize) > 0, nil
+}
+
+func ECBEncryptionOracle(plaintext []byte) ([]byte, error) {
+	// assign global fixed key as key
+	key := oracleAESKey
+
+	// decode and append unkown string to plaintext
+	unkownString, err := base64.StdEncoding.DecodeString(ch12UnkownStringB64)
+	if err != nil {
+		return nil, err
+	}
+	plaintext = append(plaintext, unkownString...)
+
+	// encrypt
+	return cryptochallenges.EncryptAESinECB(plaintext, key)
+}
+
+func ByteAtATimeECBDecryptionSimple() ([]byte, error) {
+	// generate global fixed key
+	oracleAESKey = make([]byte, cryptochallenges.AESBlockSize)
+	_, err := rand.Read(oracleAESKey)
+
+	// get block size
+	blockSize, err := getBlockSize(ECBEncryptionOracle)
+	if err != nil {
+		return nil, err
+	}
+
+	// detect ECB
+	isECB, err := IsECBEncryption(ECBEncryptionOracle, blockSize)
+	if err != nil {
+		return nil, err
+	}
+	if !isECB {
+		return nil, errors.New("ciphertext is not ECB encrypted")
+	}
+
+	// decrypt ECB
+	unkownText, err := breakECB(ECBEncryptionOracle, blockSize)
+	if err != nil {
+		return nil, err
+	}
+
+	return unkownText, nil
+}
+
+// getBlockSize - returns the block size being used by the input encryption oracle
+func getBlockSize(oracle encryptionOracle) (int, error) {
+	plaintext := []byte("A")
+	baseCiphertext, err := oracle(plaintext)
+	if err != nil {
+		return 0, err
+	}
+
+	ciphertext := make([]byte, len(baseCiphertext))
+	copy(ciphertext, baseCiphertext)
+
+	for i := 1; len(ciphertext) == len(baseCiphertext); i++ {
+		plaintext = bytes.Repeat([]byte("A"), i)
+		ciphertext, err = oracle(plaintext)
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	return len(ciphertext) - len(baseCiphertext), nil
+}
+
+func breakECB(oracle encryptionOracle, blockSize int) ([]byte, error) {
+	var decryptedText []byte
+
+	unknownTextCiphertext, err := oracle([]byte(""))
+	if err != nil {
+		return nil, err
+	}
+
+	for iBlock := 1; iBlock <= len(unknownTextCiphertext)/blockSize; iBlock++ {
+		for i := 1; i <= blockSize; i++ {
+			plaintext := bytes.Repeat([]byte("A"), blockSize-i)
+
+			ciphertext, err := oracle(plaintext)
+			if err != nil {
+				return nil, err
+			}
+
+			for c := 0; c <= 255; c++ {
+				auxPlaintext := append(plaintext, decryptedText...)
+				auxPlaintext = append(auxPlaintext, byte(c))
+
+				auxCiphertext, err := oracle(auxPlaintext)
+				if err != nil {
+					return nil, err
+				}
+
+				if equalSlices(auxCiphertext[:iBlock*blockSize], ciphertext[:iBlock*blockSize]) {
+					decryptedText = append(decryptedText, byte(c))
+					break
+				}
+			}
+		}
+	}
+
+	return tools.RemovePkcs7Padding(decryptedText), nil
+}
+
+func equalSlices(a, b []byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+	return true
 }

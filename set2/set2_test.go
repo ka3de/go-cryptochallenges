@@ -98,12 +98,12 @@ func TestEcbCbcDetectionOracle(t *testing.T) {
 
 	// when
 	for i := 0; i < totalEncryptions; i++ {
-		ciphertext, err := EncryptionOracle(plaintext)
+		ciphertext, err := RandomEncryptionOracle(plaintext)
 		if err != nil {
 			t.Fatalf("Error encryption oracle: %s", err.Error())
 		}
 
-		if IsECBEncrypted(ciphertext) {
+		if IsECBEncrypted(ciphertext, cryptochallenges.AESBlockSize) {
 			ecbCounter++
 		} else {
 			cbcCounter++
@@ -115,5 +115,21 @@ func TestEcbCbcDetectionOracle(t *testing.T) {
 	if diffPercentage > maxErrorMargin {
 		t.Errorf("Error detecting ECB encryption, max error margin overcome:\nmax: %f\nerr:%f",
 			maxErrorMargin, diffPercentage)
+	}
+}
+
+func TestByteAtATimeECBDecryptionSimple(t *testing.T) {
+	// given
+
+	// when
+	unknownPlaintext, err := ByteAtATimeECBDecryptionSimple()
+	if err != nil {
+		t.Fatalf("Error decrypting ECB byte at a time: %s", err.Error())
+	}
+
+	// then
+	if string(unknownPlaintext) != challenge12ExpectedPlaintext {
+		t.Errorf("Error breaking ECB byte at a time:\nobtained -> %s\nexpected ->%s",
+			string(unknownPlaintext), challenge12ExpectedPlaintext)
 	}
 }
