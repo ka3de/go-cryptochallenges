@@ -133,3 +133,23 @@ func TestByteAtATimeECBDecryptionSimple(t *testing.T) {
 			string(unknownPlaintext), challenge12ExpectedPlaintext)
 	}
 }
+
+func TestBreakECBwithCutAndPaste(t *testing.T) {
+	// given
+
+	// when
+	encodedAdminProfile, err := BreakECBwithCutAndPaste()
+	if err != nil {
+		t.Fatalf("Error braking ECB with cut and paste: %s", err.Error())
+	}
+
+	adminProfile, err := ParseUserProfile(encodedAdminProfile)
+	if err != nil {
+		t.Fatalf("Error parsing user profile: %s", err.Error())
+	}
+
+	// then
+	if adminProfile.Role != "admin" {
+		t.Errorf("Error, expected role 'admin', got '%s'", adminProfile.Role)
+	}
+}

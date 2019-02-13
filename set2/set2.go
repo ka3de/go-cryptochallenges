@@ -6,8 +6,10 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	random "math/rand"
+	"strings"
 
 	"github.com/ka3de/go-cryptochallenges/tools"
 
@@ -20,16 +22,18 @@ const (
 		"BJIGp1c3QgZHJvdmUgYnkK"
 )
 
-// global variable to use with ECB encryption oracle
+// global symmetric key variable to use with encryption oracles
 var oracleAESKey []byte
 
 type encryptionOracle func(plaintext []byte) ([]byte, error)
+
+type profileOracle func(email string) ([]byte, error)
 
 // DecryptCBC decrypts a ciphertext previously encrypted in CBC mode using the
 // input block cipher
 func DecryptCBC(ciphertext, iv []byte, blockCipher cipher.Block, blockSize int) ([]byte, error) {
 	if len(iv) != blockSize {
-		return nil, errors.New("Invalid IV size!")
+		return nil, errors.New("invalid IV size")
 	}
 
 	blocksNumber := len(ciphertext) / blockSize
@@ -58,7 +62,7 @@ func DecryptCBC(ciphertext, iv []byte, blockCipher cipher.Block, blockSize int) 
 	return tools.RemovePkcs7Padding(paddedPlaintext), nil
 }
 
-// EncryptsCBC encrypts in CBC mode using the input block cipher
+// EncryptCBC encrypts in CBC mode using the input block cipher
 // returns a tuple of IV, ciphertext, error (if any)
 func EncryptCBC(plaintext []byte, blockCipher cipher.Block, blockSize int) ([]byte, []byte, error) {
 	iv, err := generateIV(blockSize)
@@ -103,6 +107,8 @@ func generateKey(keySize int) ([]byte, error) {
 	return key, err
 }
 
+// RandomEncryptionOracle - encrypts the given plaintext after prepending and appending some random text to it
+// encryption on average 50% of the time using AES in ECB mode and 50% of the time using AES in CBC mode
 func RandomEncryptionOracle(plaintext []byte) ([]byte, error) {
 	plaintext, err := randomizePlaintext(plaintext)
 	if err != nil {
@@ -153,8 +159,8 @@ func IsECBEncrypted(ciphertext []byte, blockSize int) bool {
 	return tools.CountRepeatedBlocks(ciphertext, blockSize) > 0
 }
 
-// IsECBEncryption - guesses if the input oracle encrypts data using ECB mode
-func IsECBEncryption(oracle encryptionOracle, blockSize int) (bool, error) {
+// isECBEncryption - guesses if the input oracle encrypts data using ECB mode
+func isECBEncryption(oracle encryptionOracle, blockSize int) (bool, error) {
 	plaintext := bytes.Repeat([]byte("A"), 4*blockSize)
 	ciphertext, err := oracle(plaintext)
 	if err != nil {
@@ -164,8 +170,22 @@ func IsECBEncryption(oracle encryptionOracle, blockSize int) (bool, error) {
 	return tools.CountRepeatedBlocks(ciphertext, blockSize) > 0, nil
 }
 
-func ECBEncryptionOracle(plaintext []byte) ([]byte, error) {
-	// assign global fixed key as key
+func initializeOracleKey() error {
+	if len(oracleAESKey) > 0 {
+		return nil // already initialized
+	}
+
+	oracleAESKey = make([]byte, cryptochallenges.AESBlockSize)
+	_, err := rand.Read(oracleAESKey)
+	return err
+}
+
+func ecbEncryptionOracle(plaintext []byte) ([]byte, error) {
+	// initialize and assign oracle key
+	err := initializeOracleKey()
+	if err != nil {
+		return nil, err
+	}
 	key := oracleAESKey
 
 	// decode and append unkown string to plaintext
@@ -180,18 +200,14 @@ func ECBEncryptionOracle(plaintext []byte) ([]byte, error) {
 }
 
 func ByteAtATimeECBDecryptionSimple() ([]byte, error) {
-	// generate global fixed key
-	oracleAESKey = make([]byte, cryptochallenges.AESBlockSize)
-	_, err := rand.Read(oracleAESKey)
-
 	// get block size
-	blockSize, err := getBlockSize(ECBEncryptionOracle)
+	blockSize, err := getBlockSize(ecbEncryptionOracle)
 	if err != nil {
 		return nil, err
 	}
 
 	// detect ECB
-	isECB, err := IsECBEncryption(ECBEncryptionOracle, blockSize)
+	isECB, err := isECBEncryption(ecbEncryptionOracle, blockSize)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +216,7 @@ func ByteAtATimeECBDecryptionSimple() ([]byte, error) {
 	}
 
 	// decrypt ECB
-	unkownText, err := breakECB(ECBEncryptionOracle, blockSize)
+	unkownText, err := breakECB(ecbEncryptionOracle, blockSize)
 	if err != nil {
 		return nil, err
 	}
@@ -277,4 +293,97 @@ func equalSlices(a, b []byte) bool {
 		}
 	}
 	return true
+}
+
+// UserProfile - represents a user profile
+type UserProfile struct {
+	Email string `json:"email"`
+	UID   string `json:"uid"`
+	Role  string `json:"role"`
+}
+
+// NewUserProfile - returns a new encoded user profile given a user email
+func NewUserProfile(email string) string {
+	// strip '&' and '=' characters
+	email = strings.Replace(email, "&", "", -1)
+	email = strings.Replace(email, "=", "", -1)
+	return "email=" + email + "&uid=10&role=user" //TODO: Improve this!
+}
+
+// ParseUserProfile - parses an encoded user profile and returns its JSON object representation
+func ParseUserProfile(profile string) (UserProfile, error) {
+	profileAttributes := strings.Split(profile, "&")
+
+	// build JSON object string
+	profileObject := "{\n"
+	for i, attribute := range profileAttributes {
+		if i != 0 {
+			profileObject += ",\n"
+		}
+
+		attributeComponents := strings.Split(attribute, "=")
+		attributeKey := attributeComponents[0]
+		attributeValue := attributeComponents[1]
+
+		profileObject += "\"" + attributeKey + "\"" + ":" + "\"" + attributeValue + "\""
+	}
+	profileObject += "\n}"
+
+	// unmarshal JSON and return object
+	userProfile := UserProfile{}
+	err := json.Unmarshal([]byte(profileObject), &userProfile)
+	if err != nil {
+		return UserProfile{}, err
+	}
+
+	return userProfile, nil
+}
+
+// keyValueProfileOracle - generates a new encrypted user profile from given email
+func keyValueProfileOracle(email string) ([]byte, error) {
+	// initialize and assign oracle key
+	err := initializeOracleKey()
+	if err != nil {
+		return nil, err
+	}
+	key := oracleAESKey
+
+	// create encoded profile
+	encodedProfile := NewUserProfile(email)
+
+	// encrypt AES ECB
+	return cryptochallenges.EncryptAESinECB([]byte(encodedProfile), key)
+}
+
+// BreakECBwithCutAndPaste - breaks ECB encryption performed by an oracle that encrypts
+// a user profile for a given email by using cut and paste of ciphertext due to ECB blocks malleability
+func BreakECBwithCutAndPaste() (string, error) {
+	profileOracle := keyValueProfileOracle
+
+	// isolate 'admin' in a block
+	paddedAdminRole := string(tools.ApplyPkcs7Padding([]byte("admin"), cryptochallenges.AESBlockSize))
+	isolateAdminEmail := "          " + paddedAdminRole // email that makes 'admin' to fit at the start of a block
+	isolateAdminEncryptedProfile, err := profileOracle(isolateAdminEmail)
+	if err != nil {
+		return "", err
+	}
+	adminCiphertext := isolateAdminEncryptedProfile[cryptochallenges.AESBlockSize : 2*cryptochallenges.AESBlockSize] // second block
+
+	// get ciphertext for an email that makes the second block
+	// ending match the begining of the role value
+	emailThatLetsRoleFitInLastBlock := "emailThatFits"
+	emailThatFitsEncryptedProfile, err := profileOracle(emailThatLetsRoleFitInLastBlock)
+	if err != nil {
+		return "", err
+	}
+	roleValueBlockPos := ((len(emailThatFitsEncryptedProfile) / cryptochallenges.AESBlockSize) - 1) * cryptochallenges.AESBlockSize
+	userProfileThatFitsRoleInLastBlock := emailThatFitsEncryptedProfile[:roleValueBlockPos]
+
+	// concatenate and decrypt to obtain admin user profile
+	adminUserProfileCiphertext := append(userProfileThatFitsRoleInLastBlock, adminCiphertext...)
+	adminUserProfilePlaintext, err := cryptochallenges.DecryptAESinECB(adminUserProfileCiphertext, oracleAESKey)
+	if err != nil {
+		return "", nil
+	}
+	return string(adminUserProfilePlaintext), nil
 }
